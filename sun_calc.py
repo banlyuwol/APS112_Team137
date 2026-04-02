@@ -9,7 +9,7 @@ Simplified for:
 """
 
 import math
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 
 
 # ──────────────────────────────────────────────
@@ -25,6 +25,7 @@ TZ_DST = -5
 # DST LOGIC (Canada-wide)
 # ──────────────────────────────────────────────
 def _is_dst_canada(d: date) -> bool:
+    """Return True if the date is in Daylight Saving Time in Canada."""
     march1 = date(d.year, 3, 1)
     first_sun_march = march1 + timedelta(days=(6 - march1.weekday()) % 7)
     dst_start = first_sun_march + timedelta(weeks=1)
@@ -40,6 +41,7 @@ def _rad2deg(r): return r * 180 / math.pi
 
 
 def _julian_day(d: date) -> float:
+    """Convert calendar date to Julian Day Number."""
     a = (14 - d.month) // 12
     y = d.year + 4800 - a
     m = d.month + 12 * a - 3
@@ -48,6 +50,7 @@ def _julian_day(d: date) -> float:
 
 
 def _solar_noon_utc(jd: float, lon_deg: float):
+    """Compute solar noon (UTC hours) and solar declination."""
     n = jd - 2451545.0
 
     L0 = (280.46646 + 36000.76983 * (n / 36525)) % 360
@@ -60,7 +63,6 @@ def _solar_noon_utc(jd: float, lon_deg: float):
     apparent_lon = sun_lon - 0.00569 - 0.00478 * math.sin(_deg2rad(omega))
 
     epsilon = 23.44
-
     dec = _rad2deg(math.asin(math.sin(_deg2rad(epsilon)) * math.sin(_deg2rad(apparent_lon))))
 
     B = _deg2rad(360 / 365 * (n % 365 - 81))
@@ -70,14 +72,14 @@ def _solar_noon_utc(jd: float, lon_deg: float):
     return solar_noon_utc / 60.0, dec
 
 
-def calculate_sun_times(
-    target_date: date,
-    lat: float,
-    lon: float,
-    tz_std: int,
-    tz_dst: int,
-) -> dict:
+def calculate_sun_times(target_date: date, lat: float, lon: float, tz_std: int, tz_dst: int) -> dict:
+    """
+    Returns sunrise, solar noon, and sunset times for a given date and location.
 
+    Output:
+        sunrise_frac / noon_frac / sunset_frac  -> fraction of 24h day (0.0–1.0)
+        sunrise_str / noon_str / sunset_str    -> "HH:MM" local time
+    """
     jd  = _julian_day(target_date)
     noon_utc_h, declination = _solar_noon_utc(jd, lon)
 
@@ -122,15 +124,11 @@ def calculate_sun_times(
 # 🔥 SIMPLE FUNCTION FOR YOUR GUI
 # ──────────────────────────────────────────────
 def calculate_canada_sun_times(target_date: date) -> dict:
-    return calculate_sun_times(
-        target_date,
-        CANADA_LAT,
-        CANADA_LON,
-        TZ_STD,
-        TZ_DST,
-    )
+    """Return sun times for Canada-average location."""
+    return calculate_sun_times(target_date, CANADA_LAT, CANADA_LON, TZ_STD, TZ_DST)
 
 
+# Optional: remove this block in production
 if __name__ == "__main__":
     result = calculate_canada_sun_times(date.today())
     for k, v in result.items():
