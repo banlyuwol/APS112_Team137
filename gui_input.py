@@ -223,18 +223,23 @@ class CircadianApp(tk.Tk):
         self.time_var.set(now.strftime("%H:%M"))
 
     def _get_sun_times(self):
-        city = self.city_var.get()
-        coords = CANADIAN_CITIES.get(city)
-        if coords is None or city == "Custom":
-            lat = float(self.lat_var.get())
-            lon = float(self.lon_var.get())
-            tz_std, tz_dst = -5, -4  # fallback EST
-        else:
-            lat, lon, tz_std, tz_dst = coords
+    from datetime import date
 
-        target = date.fromisoformat(self.date_var.get())
-        dst = self.dst_var.get()
-        return calculate_sun_times(target, lat, lon, tz_std, tz_dst, dst)
+    CANADA_LAT = 56.1304
+    CANADA_LON = -106.3468
+    TZ_STD = -6
+    TZ_DST = -5
+
+    target = date.fromisoformat(self.date_var.get())
+
+    return calculate_sun_times(
+        target,
+        CANADA_LAT,
+        CANADA_LON,
+        TZ_STD,
+        TZ_DST,
+        True
+    )
 
     def _calculate_preview(self):
         try:
@@ -261,20 +266,6 @@ class CircadianApp(tk.Tk):
 
         # Reconfigure LED strip if count changed
         led_controller.LED_COUNT = self.led_count_var.get()
-
-        save_config({
-            "city":         self.city_var.get(),
-            "lat":          float(self.lat_var.get()),
-            "lon":          float(self.lon_var.get()),
-            "date":         self.date_var.get(),
-            "led_count":    self.led_count_var.get(),
-            "interval_sec": self.interval_var.get(),
-            "sun_times":    {
-                "sunrise_frac": st["sunrise_frac"],
-                "noon_frac":    st["noon_frac"],
-                "sunset_frac":  st["sunset_frac"],
-            }
-        })
 
         self._stop_event.clear()
         self._controller_thread = threading.Thread(
