@@ -10,87 +10,57 @@ Usage:
 """
 
 import argparse
-from datetime import date
+from datetime import date, datetime
 
-from sun_calc import calculate_sun_times, CANADIAN_CITIES
+from sun_calc import calculate_sun_times
 import led_controller
+
+# Canada average
+CANADA_LAT = 56.1304
+CANADA_LON = -106.3468
+TZ_STD = -6
+TZ_DST = -5
 
 
 def main():
     parser = argparse.ArgumentParser(description="Circadian LED controller (CLI)")
-    parser.add_argument("--city",     default=None, help="Canadian city name")
-    parser.add_argument("--lat",      type=float, default=None)
-    parser.add_argument("--lon",      type=float, default=None)
-    parser.add_argument("--date",     default=date.today().isoformat(),
+
+    parser.add_argument("--date", default=date.today().isoformat(),
                         help="YYYY-MM-DD (default: today)")
-    parser.add_argument("--leds",     type=int, default=60,
-                        help="Number of LEDs in strip")
-    parser.add_argument("--interval", type=int, default=30,
-                        help="Update interval in seconds")
-    parser.add_argument("--no-dst",   action="store_true",
-                        help="Disable DST (e.g. Saskatchewan)")
+    parser.add_argument("--time", default=None,
+                        help="HH:MM (default: current system time)")
+    parser.add_argument("--leds", type=int, default=60)
+    parser.add_argument("--interval", type=int, default=30)
+
     args = parser.parse_args()
 
-    # ── Resolve location ──────────────────────────────────────
-    if args.city:
-        city = args.city.strip()
-        coords = CANADIAN_CITIES.get(city)
-        if coords is None:
-            print(f"Unknown city '{city}'. Available cities:")
-            for c in CANADIAN_CITIES:
-                print(f"  {c}")
-            return
-        lat, lon, tz_std, tz_dst = coords
-    elif args.lat is not None and args.lon is not None:
-        lat, lon, tz_std, tz_dst = args.lat, args.lon, -5, -4
+    target_date = date.fromisoformat(args.date)
+
+    # Use system time if not provided
+    if args.time:
+        current_time = datetime.strptime(args.time, "%H:%M").time()
     else:
-        # Interactive prompt
-        print("\nAvailable cities:")
-        cities = [c for c in CANADIAN_CITIES if c != "Custom"]
-        for i, c in enumerate(cities, 1):
-            print(f"  {i:2d}. {c}")
-        choice = input("\nEnter city number or name (or 'custom'): ").strip()
-        try:
-            idx = int(choice) - 1
-            city = cities[idx]
-        except (ValueError, IndexError):
-            city = choice
-        coords = CANADIAN_CITIES.get(city)
-        if coords:
-            lat, lon, tz_std, tz_dst = coords
-        else:
-            lat   = float(input("Latitude  (e.g. 43.65): "))
-            lon   = float(input("Longitude (e.g. -79.38): "))
-            tz_std, tz_dst = -5, -4
+        current_time = datetime.now().time()
 
-    # ── Calculate sun times ───────────────────────────────────
-    target = date.fromisoformat(args.date)
-    dst    = not args.no_dst
+    # Calculate using fixed Canada average
+    st = calculate_sun_times(
+        target_date,
+        CANADA_LAT,
+        CANADA_LON,
+        TZ_STD,
+        TZ_DST,
+        True
+    )
 
-    try:
-        st = calculate_sun_times(target, lat, lon, tz_std, tz_dst, dst)
-    except ValueError as e:
-        print(f"Error: {e}")
-        return
-
-    print("\n" + "═" * 44)
-    print(f"  📍 {lat:.4f}°N, {lon:.4f}°E   {st['timezone']}")
-    print(f"  📅 {st['date']}")
-    print("─" * 44)
-    print(f"  🌅 Sunrise    : {st['sunrise_str']}")
-    print(f"  ☀️  Solar Noon : {st['noon_str']}")
-    print(f"  🌇 Sunset     : {st['sunset_str']}")
-    print(f"  ⏱  Day length  : {st['day_length_h']} h")
-    print("═" * 44)
-
-    input("\nPress Enter to start the LED controller (Ctrl+C to quit)…")
-
+    # Configure LED strip
     led_controller.LED_COUNT = args.leds
+
+    # Run LED loop (NO PRINTS)
     led_controller.run_loop(
         sun_times={
             "sunrise_frac": st["sunrise_frac"],
-            "noon_frac":    st["noon_frac"],
-            "sunset_frac":  st["sunset_frac"],
+            "noon_frac": st["noon_frac"],
+            "sunset_frac": st["sunset_frac"],
         },
         poll_interval=args.interval,
     )
