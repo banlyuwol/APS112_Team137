@@ -1,12 +1,11 @@
 """
-cli_main.py
+main.py
 -----------
 Headless CLI alternative — use this when SSH-ing into the Pi
 without a display attached.
 
 Usage:
   python3 cli_main.py
-  python3 cli_main.py --city Toronto --date 2025-12-21 --leds 60
 """
 
 import argparse
@@ -29,10 +28,17 @@ def main():
                         help="YYYY-MM-DD (default: today)")
     parser.add_argument("--time", default=None,
                         help="HH:MM (default: current system time)")
-    parser.add_argument("--leds", type=int, default=60)
-    parser.add_argument("--interval", type=int, default=30)
+    parser.add_argument("--leds", type=int, default=60,
+                        help="Number of LEDs in the strip")
+    parser.add_argument("--interval", type=int, default=30,
+                        help="Loop polling interval in seconds")
 
     args = parser.parse_args()
+
+    if args.leds <= 0:
+        raise ValueError("LED count must be > 0")
+    if args.interval <= 0:
+        raise ValueError("Interval must be > 0")
 
     target_date = date.fromisoformat(args.date)
 
@@ -42,20 +48,19 @@ def main():
     else:
         current_time = datetime.now().time()
 
-    # Calculate using fixed Canada average
+    # Calculate sun times using Canada-average
     st = calculate_sun_times(
         target_date,
         CANADA_LAT,
         CANADA_LON,
         TZ_STD,
         TZ_DST,
-        True
     )
 
     # Configure LED strip
     led_controller.LED_COUNT = args.leds
 
-    # Run LED loop (NO PRINTS)
+    # Run LED loop (no prints)
     led_controller.run_loop(
         sun_times={
             "sunrise_frac": st["sunrise_frac"],
@@ -64,7 +69,5 @@ def main():
         },
         poll_interval=args.interval,
     )
-
-
 if __name__ == "__main__":
     main()
