@@ -1,10 +1,9 @@
-"""
-gui_input.py
-------------
-Tkinter GUI that launches automatically when the Pi boots / user connects.
-Collects: city (or custom lat/lon), date, time, number of LEDs.
-Writes settings to config.json and launches the LED controller loop.
-"""
+# gui_input.py
+# ------------
+# Tkinter GUI for circadian LED setup.
+# Collects date/time, then starts LED loop at safe brightness.
+# Includes option to turn LEDs off.
+
 import tkinter as tk
 from datetime import datetime, date
 import threading
@@ -18,6 +17,8 @@ CANADA_LON = -106.3468
 TZ_STD = -6
 TZ_DST = -5
 
+# GUI-safe brightness factor (reduce intensity)
+GUI_BRIGHTNESS_CAP = 0.3  # 0.0–1.0
 
 class App(tk.Tk):
     def __init__(self):
@@ -37,7 +38,10 @@ class App(tk.Tk):
         self.time_entry.insert(0, now.strftime("%H:%M"))
         self.time_entry.pack()
 
-        tk.Button(self, text="Start", command=self.start_led).pack(pady=10)
+        tk.Button(self, text="Start LEDs", command=self.start_led).pack(pady=10)
+        tk.Button(self, text="Turn Off LEDs", command=self.turn_off_leds).pack(pady=5)
+
+        self.led_thread = None
 
     def start_led(self):
         try:
@@ -55,19 +59,33 @@ class App(tk.Tk):
                 True
             )
 
+            # Stop previous loop if running
+            if self.led_thread and self.led_thread.is_alive():
+                led_controller.leds_off()
+
             # Start LED loop in background
-            threading.Thread(
+            self.led_thread = threading.Thread(
                 target=led_controller.run_loop,
-                args=({
-                    "sunrise_frac": st["sunrise_frac"],
-                    "noon_frac": st["noon_frac"],
-                    "sunset_frac": st["sunset_frac"],
-                }, 30),
+                kwargs={
+                    "sun_times": {
+                        "sunrise_frac": st["sunrise_frac"],
+                        "noon_frac": st["noon_frac"],
+                        "sunset_frac": st["sunset_frac"],
+                    },
+                    "poll_interval": 30,
+                    "verbose": False,
+                    "gui_brightness_cap": GUI_BRIGHTNESS_CAP  # pass GUI dimming
+                },
                 daemon=True
-            ).start()
+            )
+            self.led_thread.start()
 
         except Exception as e:
             print("Error:", e)
+
+    def turn_off_leds(self):
+        led_controller.leds_off()
+        print("[GUI] LEDs turned off.")
 
 
 if __name__ == "__main__":
