@@ -1,6 +1,0 @@
-# requirements.txt
-# Install with:  pip install -r requirements.txt --break-system-packages
-rpi_ws281x>=5.0.0        # SK6812 / WS2812 LED driver
-adafruit-circuitpython-neopixel>=6.0.0
-adafruit-blinka>=8.0.0   # CircuitPython compatibility layer for Pi
-# tkinter ships with Python on Raspberry Pi OS — no pip install needed
