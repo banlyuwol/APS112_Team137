@@ -58,11 +58,22 @@ circadian_led/
 
 ## Installation
 
+### 0. Requirements
+- Raspberry Pi 4B with Python 3.9+
+- SK6812 (RGBW) LED strip
+- Libraries:
+```bash
+pip install rpi_ws281x adafruit-circuitpython-neopixel
+```
+- Tkinter (for GUI version):
+```
+sudo apt install python3-tk
+```
+
 ### 1. Clone / copy files to Pi
 ```bash
-mkdir -p /home/pi/circadian_led
-cd /home/pi/circadian_led
-# copy all files here
+git clone <repo-url>
+cd <repo-folder>
 ```
 
 ### 2. Enable SPI / PWM & configure system
@@ -89,22 +100,23 @@ pip3 install -r requirements.txt --break-system-packages
 
 ### 4. Run (must be root for GPIO PWM access)
 ```bash
-# With display (GUI):
+# GUI version (with display)
 sudo python3 gui_input.py
 
-# Headless / SSH:
-sudo python3 cli_main.py
+# Headless / SSH (CLI)
+sudo python3 main.py
 
-# With arguments:
-sudo python3 cli_main.py --date 2025-06-21 --leds 120
+# With arguments (CLI)
+sudo python3 main.py --date 2025-06-21 --leds 120 --interval 30
 ```
 
 ### 5. Auto-start GUI on boot
 ```bash
 mkdir -p ~/.config/autostart
 nano ~/.config/autostart/circadian-led.desktop
-
+```
 Paste:
+```bash
 [Desktop Entry]
 Type=Application
 Name=Circadian LED
