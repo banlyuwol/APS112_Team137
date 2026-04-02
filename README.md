@@ -60,24 +60,31 @@ circadian_led/
 
 ### 1. Clone / copy files to Pi
 ```bash
-mkdir /home/pi/circadian_led
+mkdir -p /home/pi/circadian_led
+cd /home/pi/circadian_led
 # copy all files here
 ```
 
-### 2. Enable SPI / PWM & configure GPU memory
+### 2. Enable SPI / PWM & configure system
 ```bash
 sudo raspi-config
 # → Interface Options → SPI → Enable
-# Also add to /boot/config.txt:
+# → System Options → Boot / Auto Login → Desktop Autologin
+
+# Fix PWM timing instability:
+sudo nano /boot/config.txt
+# Add:
 #   core_freq=500
 #   core_freq_min=500
-# (fixes PWM timing instability)
 ```
 
 ### 3. Install Python dependencies
 ```bash
+sudo apt update
+sudo apt install -y python3-pip python3-tk
+
 cd /home/pi/circadian_led
-pip install -r requirements.txt --break-system-packages
+pip3 install -r requirements.txt --break-system-packages
 ```
 
 ### 4. Run (must be root for GPIO PWM access)
@@ -94,16 +101,21 @@ sudo python3 cli_main.py --city Vancouver --date 2025-06-21 --leds 120
 
 ### 5. Auto-start GUI on boot
 ```bash
-# Copy autostart entry
 mkdir -p ~/.config/autostart
-cat > ~/.config/autostart/circadian-led.desktop << EOF
+nano ~/.config/autostart/circadian-led.desktop
+
+Paste:
 [Desktop Entry]
 Type=Application
 Name=Circadian LED
 Exec=sudo python3 /home/pi/circadian_led/gui_input.py
-EOF
+StartupNotify=false
 ```
 
+### 6. Reboot
+```bash
+sudo reboot
+```
 ---
 
 ## How the Circadian Curve Works
