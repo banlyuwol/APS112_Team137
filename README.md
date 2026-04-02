@@ -96,7 +96,7 @@ sudo python3 gui_input.py
 sudo python3 cli_main.py
 
 # With arguments:
-sudo python3 cli_main.py --city Vancouver --date 2025-06-21 --leds 120
+sudo python3 cli_main.py --date 2025-06-21 --leds 120
 ```
 
 ### 5. Auto-start GUI on boot
