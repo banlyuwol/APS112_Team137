@@ -60,14 +60,16 @@ def main():
     # Configure LED strip
     led_controller.LED_COUNT = args.leds
 
-    # Run LED loop (no prints)
-    led_controller.run_loop(
-        sun_times={
-            "sunrise_frac": st["sunrise_frac"],
-            "noon_frac": st["noon_frac"],
-            "sunset_frac": st["sunset_frac"],
-        },
-        poll_interval=args.interval,
-    )
+    # Run LED loop silently (headless)
+led_controller.run_loop(
+    sun_times={
+        "sunrise_frac": st["sunrise_frac"],
+        "noon_frac": st["noon_frac"],
+        "sunset_frac": st["sunset_frac"],
+    },
+    poll_interval=args.interval,
+    verbose=False  # suppress prints
+)
+
 if __name__ == "__main__":
     main()
