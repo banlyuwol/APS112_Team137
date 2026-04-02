@@ -25,6 +25,16 @@ pixels = neopixel.NeoPixel(
     pixel_order=LED_ORDER
 )
 
+def init_pixels():
+    """Re-initialize the NeoPixel object (useful if LED_COUNT changes)."""
+    global pixels
+    pixels = neopixel.NeoPixel(
+        LED_PIN, LED_COUNT,
+        brightness=LED_BRIGHTNESS,
+        auto_write=False,
+        pixel_order=LED_ORDER
+    )
+
 
 # ──────────────────────────────────────────────
 # COLOR TEMPERATURE → RGB CONVERSION
@@ -114,9 +124,8 @@ def circadian_params(factor: float) -> dict:
     brightness = factor ** 0.5
 
     # White channel: use warm white LED to supplement at lower temps
-    # At high CCT (noon) white = 0; at low CCT (dawn/dusk) white blends in
     white_blend = max(0.0, 1.0 - factor * 1.5)  # 0 at noon, ~1 at 33% factor
-    white = int(white_blend * 180 * brightness)  # cap at 180/255 to stay warm
+    white = min(255, max(0, int(white_blend * 180 * brightness)))  # clamp 0–255
 
     return {
         "kelvin": kelvin,
@@ -152,7 +161,7 @@ def leds_off() -> None:
 # ──────────────────────────────────────────────
 # MAIN LOOP (called by scheduler / main.py)
 # ──────────────────────────────────────────────
-def run_loop(sun_times: dict, poll_interval: float = 30.0) -> None:
+def run_loop(sun_times: dict, poll_interval: float = 30.0, verbose: bool = True) -> None:
     """
     sun_times: {
         "sunrise_frac": float,   # fraction of 24h
@@ -160,8 +169,10 @@ def run_loop(sun_times: dict, poll_interval: float = 30.0) -> None:
         "sunset_frac":  float,
     }
     poll_interval: seconds between LED updates
+    verbose: whether to print LED updates
     """
-    print("[LED] Controller running. Press Ctrl+C to stop.")
+    if verbose:
+        print("[LED] Controller running. Press Ctrl+C to stop.")
     try:
         while True:
             now = time.localtime()
@@ -176,15 +187,17 @@ def run_loop(sun_times: dict, poll_interval: float = 30.0) -> None:
             params = circadian_params(factor)
             apply_to_leds(params)
 
-            print(
-                f"[LED] {now.tm_hour:02d}:{now.tm_min:02d}  "
-                f"factor={factor:.3f}  "
-                f"K={params['kelvin']:.0f}  "
-                f"br={params['brightness']:.2f}  "
-                f"W={params['white']}"
-            )
+            if verbose:
+                print(
+                    f"[LED] {now.tm_hour:02d}:{now.tm_min:02d}  "
+                    f"factor={factor:.3f}  "
+                    f"K={params['kelvin']:.0f}  "
+                    f"br={params['brightness']:.2f}  "
+                    f"W={params['white']}"
+                )
             time.sleep(poll_interval)
 
     except KeyboardInterrupt:
-        print("\n[LED] Shutting down — LEDs off.")
+        if verbose:
+            print("\n[LED] Shutting down — LEDs off.")
         leds_off()
