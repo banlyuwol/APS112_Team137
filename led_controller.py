@@ -78,25 +78,25 @@ def smooth_factor(t: float, t_rise: float, t_noon: float, t_set: float) -> float
         return (1 + math.cos(math.pi * phase)) / 2
 
 
-MAX_BRIGHTNESS = 0.2  # global cap for 142 LEDs (0.0 - 1.0)
+MAX_BRIGHTNESS = 0.2  # cap brightness for long strips
 
 def circadian_params(factor: float) -> dict:
     """
-    Map smooth factor (0–1) to Kelvin, brightness, and warm-white channel.
-    Scales brightness for long LED strips.
+    Factor 0→1 maps to color temperature, brightness, warm-white.
+    Enhanced for perceptible warmth changes.
     """
     if factor < 0.01:
         return {"kelvin": 1800, "brightness": 0.0, "white": 0}
 
-    # Kelvin: 2700 K at edges → 6500 K at noon
-    kelvin = 2700 + (6500 - 2700) * (factor ** 0.7)
+    # Color temp: exaggerate dawn/dusk → noon contrast
+    kelvin = 2700 + (6500 - 2700) * (factor ** 0.5)  # softer curve for faster warm→cool
 
-    # Brightness: scaled down for long LED strips
+    # Brightness: lower overall for 142 LEDs
     brightness = (factor ** 0.5) * MAX_BRIGHTNESS
 
-    # White channel: blend in warm white at dawn/dusk
-    white_blend = max(0.0, 1.0 - factor * 1.5)
-    white = int(white_blend * 180 * brightness)  # cap at ~180 * scaled brightness
+    # Warm-white channel: stronger at low factor
+    white_blend = max(0.0, 1.2 - factor * 1.2)  # 1.0→0.0
+    white = int(white_blend * 180 * brightness)
 
     return {"kelvin": kelvin, "brightness": brightness, "white": white}
 
