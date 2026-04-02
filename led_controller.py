@@ -103,35 +103,16 @@ def smooth_factor(
         return (1 + math.cos(math.pi * phase)) / 2
 
 
-def circadian_params(factor: float) -> dict:
-    """
-    Maps smooth factor (0–1) to color temperature, brightness,
-    and warm-white channel for the SK6812 W channel.
-
-    Circadian rhythm science targets:
-      - Dawn/dusk : ~2700 K  (warm amber, low lux)
-      - Morning   : ~4000 K  (neutral-warm, rising)
-      - Noon      : ~6500 K  (cool daylight, high lux)
-      - Threshold : 1% factor → lights completely off
-    """
+def circadian_params(factor: float, gui_brightness_cap: float = 1.0) -> dict:
     if factor < 0.01:
         return {"kelvin": 1800, "brightness": 0.0, "white": 0}
 
-    # Kelvin: 2700 K at edges → 6500 K at noon
     kelvin = 2700 + (6500 - 2700) * (factor ** 0.7)
+    brightness = (factor ** 0.5) * gui_brightness_cap  # scale by cap
+    white_blend = max(0.0, 1.0 - factor * 1.5)
+    white = int(white_blend * 100 * brightness)
 
-    # Brightness: dim at edges, full at noon (gamma 0.5 for perceptual linearity)
-    brightness = factor ** 0.5
-
-    # White channel: use warm white LED to supplement at lower temps
-    white_blend = max(0.0, 1.0 - factor * 1.5)  # 0 at noon, ~1 at 33% factor
-    white = min(255, max(0, int(white_blend * 180 * brightness)))  # clamp 0–255
-
-    return {
-        "kelvin": kelvin,
-        "brightness": brightness,
-        "white": white,
-    }
+    return {"kelvin": kelvin, "brightness": brightness, "white": white}
 
 
 # ──────────────────────────────────────────────
@@ -161,18 +142,7 @@ def leds_off() -> None:
 # ──────────────────────────────────────────────
 # MAIN LOOP (called by scheduler / main.py)
 # ──────────────────────────────────────────────
-def run_loop(sun_times: dict, poll_interval: float = 30.0, verbose: bool = True) -> None:
-    """
-    sun_times: {
-        "sunrise_frac": float,   # fraction of 24h
-        "noon_frac":    float,
-        "sunset_frac":  float,
-    }
-    poll_interval: seconds between LED updates
-    verbose: whether to print LED updates
-    """
-    if verbose:
-        print("[LED] Controller running. Press Ctrl+C to stop.")
+def run_loop(sun_times: dict, poll_interval: float = 30.0, verbose: bool = True, gui_brightness_cap: float = 1.0) -> None:
     try:
         while True:
             now = time.localtime()
@@ -184,20 +154,11 @@ def run_loop(sun_times: dict, poll_interval: float = 30.0, verbose: bool = True)
                 sun_times["noon_frac"],
                 sun_times["sunset_frac"],
             )
-            params = circadian_params(factor)
+            params = circadian_params(factor, gui_brightness_cap)
             apply_to_leds(params)
 
             if verbose:
-                print(
-                    f"[LED] {now.tm_hour:02d}:{now.tm_min:02d}  "
-                    f"factor={factor:.3f}  "
-                    f"K={params['kelvin']:.0f}  "
-                    f"br={params['brightness']:.2f}  "
-                    f"W={params['white']}"
-                )
+                print(f"[LED] {now.tm_hour:02d}:{now.tm_min:02d} "
+                      f"factor={factor:.3f} K={params['kelvin']:.0f} "
+                      f"br={params['brightness']:.2f} W={params['white']}")
             time.sleep(poll_interval)
-
-    except KeyboardInterrupt:
-        if verbose:
-            print("\n[LED] Shutting down — LEDs off.")
-        leds_off()
